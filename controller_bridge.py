@@ -1,3 +1,4 @@
+import os
 import time
 import urllib.request
 import urllib.error
@@ -9,13 +10,23 @@ except ImportError:
     print("pygame is required. Install it with: pip install pygame")
     raise SystemExit(1)
 
+try:
+    import pyautogui
+except ImportError:
+    print("pyautogui is required. Install it with: pip install pyautogui")
+    raise SystemExit(1)
+
 ROKOKO_API_KEY = "1234"
 ROKOKO_BASE_URL = f"http://127.0.0.1:14053/v1/{ROKOKO_API_KEY}"
 
-# PlayStation Triangle button index (typically 3 on DualShock/DualSense via pygame)
-CALIBRATE_BUTTON = 3
+# PlayStation button indices (typical DualShock/DualSense mapping via pygame)
+CALIBRATE_BUTTON = 3  # Triangle
+RECORD_BUTTON = 0     # Cross (X)
 
 DEBOUNCE_SECONDS = 5
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+RECORD_BUTTON_IMAGE = os.path.join(SCRIPT_DIR, "record_button.png")
 
 CALIBRATE_PAYLOAD = json.dumps({
     "countdown_delay": 3,
@@ -57,7 +68,25 @@ def send_calibrate():
         print(f"Error sending calibration request: {e}")
 
 
+def click_record():
+    try:
+        location = pyautogui.locateCenterOnScreen(RECORD_BUTTON_IMAGE, confidence=0.8)
+    except pyautogui.ImageNotFoundException:
+        location = None
+
+    if location is None:
+        print("Error: Record button not found on screen — is Motion LIVE open?")
+        return
+
+    pyautogui.click(location)
+    print("Record button clicked")
+
+
 def main():
+    if not os.path.exists(RECORD_BUTTON_IMAGE):
+        print(f"Error: Template image not found at {RECORD_BUTTON_IMAGE}")
+        return
+
     pygame.init()
     pygame.joystick.init()
 
@@ -69,21 +98,34 @@ def main():
     joystick.init()
     print(f"Controller connected: {joystick.get_name()}")
     print(f"Triangle (button {CALIBRATE_BUTTON}) → Rokoko calibrate")
+    print(f"Cross    (button {RECORD_BUTTON}) → Motion LIVE record")
     print("Listening for button presses... (Ctrl+C to quit)\n")
 
-    last_trigger_time = 0
+    last_calibrate_time = 0
+    last_record_time = 0
 
     try:
         while True:
             for event in pygame.event.get():
-                if event.type == pygame.JOYBUTTONDOWN and event.button == CALIBRATE_BUTTON:
-                    now = time.time()
-                    if now - last_trigger_time < DEBOUNCE_SECONDS:
+                if event.type != pygame.JOYBUTTONDOWN:
+                    continue
+                now = time.time()
+
+                if event.button == CALIBRATE_BUTTON:
+                    if now - last_calibrate_time < DEBOUNCE_SECONDS:
                         print("Debounced — ignoring repeated press")
                         continue
-                    last_trigger_time = now
+                    last_calibrate_time = now
                     print("Calibration triggered (3s countdown)...")
                     send_calibrate()
+
+                elif event.button == RECORD_BUTTON:
+                    if now - last_record_time < DEBOUNCE_SECONDS:
+                        print("Debounced — ignoring repeated press")
+                        continue
+                    last_record_time = now
+                    click_record()
+
             time.sleep(0.01)
     except KeyboardInterrupt:
         print("\nStopped.")
