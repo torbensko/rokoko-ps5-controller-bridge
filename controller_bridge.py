@@ -22,6 +22,7 @@ ROKOKO_BASE_URL = f"http://127.0.0.1:14053/v1/{ROKOKO_API_KEY}"
 # PlayStation button indices (typical DualShock/DualSense mapping via pygame)
 CALIBRATE_BUTTON = 3  # Triangle
 RECORD_BUTTON = 0     # Cross (X)
+STOP_BUTTON = 1       # Circle
 
 DEBOUNCE_SECONDS = 5
 
@@ -79,6 +80,8 @@ def click_record():
         return
 
     pyautogui.click(location)
+    time.sleep(0.1)
+    pyautogui.press("space")
     print("Record button clicked")
 
 
@@ -99,10 +102,12 @@ def main():
     print(f"Controller connected: {joystick.get_name()}")
     print(f"Triangle (button {CALIBRATE_BUTTON}) → Rokoko calibrate")
     print(f"Cross    (button {RECORD_BUTTON}) → Motion LIVE record")
+    print(f"Circle   (button {STOP_BUTTON}) → Stop recording")
     print("Listening for button presses... (Ctrl+C to quit)\n")
 
     last_calibrate_time = 0
     last_record_time = 0
+    last_stop_time = 0
 
     try:
         while True:
@@ -125,6 +130,14 @@ def main():
                         continue
                     last_record_time = now
                     click_record()
+
+                elif event.button == STOP_BUTTON:
+                    if now - last_stop_time < DEBOUNCE_SECONDS:
+                        print("Debounced — ignoring repeated press")
+                        continue
+                    last_stop_time = now
+                    pyautogui.press("space")
+                    print("Stop recording (spacebar pressed)")
 
             time.sleep(0.01)
     except KeyboardInterrupt:
