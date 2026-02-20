@@ -1,65 +1,37 @@
 # Rokoko Controller Bridge
 
-A background script that listens for PlayStation controller button presses and triggers Rokoko Studio Command API calls via HTTP.
+Triggers Rokoko Studio suit calibration from a PlayStation controller button during motion capture sessions in iClone 8.
 
-## Context
+iClone handles most controller inputs (Record, Stop, etc.) through its own Hotkey Manager. This script runs alongside it to cover what iClone can't do natively — sending calibration commands to Rokoko Studio via its HTTP API. Both can read from the same controller simultaneously on Windows.
 
-This is used alongside iClone 8's Motion LIVE plugin for motion capture recording sessions. iClone natively supports gamepad input via its Hotkey Manager, so some buttons are mapped directly in iClone (e.g. Record/Stop). This script handles the remaining buttons that need to trigger Rokoko Studio actions — primarily calibration.
+## Setup
 
-The script and iClone can read from the same controller simultaneously on Windows since gamepad input is not exclusively captured.
+**Requirements:** Python 3, a PlayStation controller (USB or Bluetooth), and Rokoko Studio with the Command API enabled.
 
-**Important: Ensure no button overlap between this script and iClone's hotkey mappings.**
-
-## Requirements
-
-- Python 3 on Windows
-- PlayStation controller connected via USB or Bluetooth
-- Rokoko Studio running with Command API enabled
-
-## Rokoko Studio Command API
-
-- **Endpoint**: `http://127.0.0.1:14053/v1/{api_key}/{command}`
-- **Default API key**: `1234`
-- **Protocol**: HTTP POST with JSON body
-
-### Calibrate
+Install the dependency:
 
 ```
-POST http://127.0.0.1:14053/v1/1234/calibrate
-Content-Type: application/json
-
-{
-  "countdown_delay": 3,
-  "skip_suit": false,
-  "skip_gloves": false,
-  "use_custom_pose": false,
-  "pose": "straight-arms-down"
-}
+pip install pygame
 ```
 
-Pose options: `tpose`, `straight-arms-down`, `straight-arms-forward`
+## Usage
 
-### Response format
-
-```json
-{
-  "description": "string",
-  "response_code": 0
-}
+```
+python controller_bridge.py
 ```
 
-Response codes: 0 = OK, 1 = NO_CALIBRATEABLE_ACTORS, 3 = CALIBRATION_ALREADY_ONGOING, 6 = UNEXPECTED_ERROR
+Press **Triangle** to trigger a calibration with a 3-second countdown. The script debounces presses (5-second cooldown) to prevent accidental double-triggers.
 
-## Button Mapping
+Make sure there is no button overlap between this script and iClone's hotkey mappings.
 
-Map one PlayStation controller button (e.g. Triangle) to trigger the calibrate command. Include a 3-second countdown delay in the API call to give time to get into the calibration pose.
+## Configuration
 
-Leave all other buttons unmapped in the script — they'll be handled by iClone's Hotkey Manager.
+These constants at the top of `controller_bridge.py` can be adjusted:
 
-## Behaviour
+| Constant | Default | Description |
+|---|---|---|
+| `ROKOKO_API_KEY` | `"1234"` | Rokoko Studio Command API key |
+| `CALIBRATE_BUTTON` | `3` (Triangle) | PlayStation button index to listen for |
+| `DEBOUNCE_SECONDS` | `5` | Cooldown between accepted presses |
 
-- Run as a background process
-- Listen for the mapped button press
-- Debounce to prevent accidental double-triggers (e.g. ignore presses within 5 seconds of the last trigger)
-- Log each action to the console (e.g. "Calibration triggered", "Calibration successful")
-- Print an error if Rokoko Studio is unreachable
+If Triangle isn't registering correctly, press buttons while the script is running — pygame will report the button index, which you can use to update `CALIBRATE_BUTTON`.
