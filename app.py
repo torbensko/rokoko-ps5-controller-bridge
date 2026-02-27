@@ -7,12 +7,9 @@ and an activity log. Designed for double-click-and-forget usage on Windows.
 import os
 import sys
 import time
-import json
 import socket
 import threading
 import queue
-import urllib.request
-import urllib.error
 import tkinter as tk
 from datetime import datetime
 
@@ -38,26 +35,14 @@ except ImportError:
     )
     sys.exit(1)
 
-
-# ── Configuration ──────────────────────────────────────────────────────────────
-
-ROKOKO_API_KEY = "1234"
-ROKOKO_BASE_URL = f"http://127.0.0.1:14053/v1/{ROKOKO_API_KEY}"
-
-CALIBRATE_BUTTON = 3  # Triangle
-RECORD_BUTTON = 0  # Cross (X)
-STOP_BUTTON = 1  # Circle
-
-DEBOUNCE_SECONDS = 5
-
-RESPONSE_CODES = {
-    0: "OK",
-    1: "NO_CALIBRATEABLE_ACTORS",
-    3: "CALIBRATION_ALREADY_ONGOING",
-    4: "RECORDING_ALREADY_STARTED",
-    5: "RECORDING_NOT_STARTED",
-    6: "UNEXPECTED_ERROR",
-}
+from controller_bridge import (
+    rokoko_api,
+    ROKOKO_BASE_URL,
+    CALIBRATE_BUTTON,
+    RECORD_BUTTON,
+    STOP_BUTTON,
+    DEBOUNCE_SECONDS,
+)
 
 
 # ── Theme ──────────────────────────────────────────────────────────────────────
@@ -73,28 +58,7 @@ BLUE = "#7aa2f7"
 BORDER = "#414868"
 
 
-# ── Rokoko API ─────────────────────────────────────────────────────────────────
-
-
-def rokoko_api(command, payload=None):
-    """Send a command to the Rokoko Studio Command API."""
-    url = f"{ROKOKO_BASE_URL}/{command}"
-    data = json.dumps(payload or {}).encode("utf-8")
-    req = urllib.request.Request(
-        url,
-        data=data,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            body = json.loads(resp.read())
-            code = body.get("response_code")
-            desc = body.get("description", "")
-            status = RESPONSE_CODES.get(code, f"UNKNOWN ({code})")
-            return code, status, desc
-    except (urllib.error.URLError, Exception):
-        return None, None, None
+# ── Helpers ────────────────────────────────────────────────────────────────────
 
 
 def check_rokoko_connection():
@@ -254,7 +218,7 @@ class App:
         return outer, inner
 
     def _status_row(self, parent, label, initial_text, initial_color):
-        """Create a status row: ● Label    Value. Returns (dot_label, value_label)."""
+        """Create a status row: dot Label Value. Returns (dot_label, value_label)."""
         row = tk.Frame(parent, bg=CARD_BG)
         row.pack(fill="x", pady=2)
 
